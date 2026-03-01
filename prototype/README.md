@@ -1,6 +1,6 @@
-# RC Continuous Authentication PoC (Python)
+# RC Continuous Authentication PoC
 
-This prototype demonstrates continuous keystroke authentication using Reservoir Computing (RC).
+This prototype demonstrates continuous keystroke authentication using Reservoir Computing.
 
 ## What it does
 
