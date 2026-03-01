@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RC Continuous Authentication PoC</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div class="background-glow" aria-hidden="true"></div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Mitou Target PoC</p>
+        <h1>RC Continuous Authentication Console</h1>
+        <p class="subtitle">キーストローク時系列から本人性を連続評価し、乗っ取り兆候を即時検知するデモ</p>
+      </div>
+      <span class="status-pill" id="engineStatus">Idle</span>
+    </header>
+
+    <main class="layout">
+      <section class="metrics-card">
+        <h2>Live Metrics</h2>
+        <div class="metrics-grid">
+          <article class="metric">
+            <p>Current Score</p>
+            <strong id="metricScore">--</strong>
+          </article>
+          <article class="metric">
+            <p>Risk Level</p>
+            <strong id="metricRisk">--</strong>
+          </article>
+          <article class="metric">
+            <p>Policy Decision</p>
+            <strong id="metricDecision">--</strong>
+          </article>
+          <article class="metric">
+            <p>Window Index</p>
+            <strong id="metricWindow">--</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <div class="card-head">
+          <h2>Continuous Score Stream</h2>
+          <p>Green: genuine phase, Orange: takeover phase</p>
+        </div>
+        <canvas id="scoreChart" width="980" height="360" aria-label="score chart"></canvas>
+      </section>
+
+      <section class="controls-card">
+        <h2>Scenario Control</h2>
+        <div class="controls-grid">
+          <button id="startNormal">Normal Session</button>
+          <button id="startTakeover">Takeover Session</button>
+          <button id="pauseStream" class="secondary">Pause</button>
+          <button id="resetStream" class="secondary">Reset</button>
+        </div>
+        <label class="speed-control" for="streamSpeed">
+          Replay Speed
+          <input type="range" id="streamSpeed" min="100" max="1000" step="50" value="350" />
+          <span id="speedLabel">350 ms</span>
+        </label>
+      </section>
+
+      <section class="events-card">
+        <div class="card-head">
+          <h2>Security Events</h2>
+          <p>State transitions and policy actions</p>
+        </div>
+        <ul id="eventLog"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
+

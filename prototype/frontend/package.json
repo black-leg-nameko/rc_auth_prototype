@@ -1,0 +1,13 @@
+{
+  "name": "rc-auth-frontend-poc",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:ts": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "4.9.5"
+  }
+}
+
