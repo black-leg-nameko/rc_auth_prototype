@@ -158,6 +158,46 @@ h2 {
   margin-bottom: 14px;
 }
 
+.section-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.capture-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 108px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fcfffb;
+  padding: 11px 12px;
+  font-family: "IBM Plex Mono", monospace;
+  line-height: 1.45;
+  color: #17342d;
+  margin-bottom: 10px;
+}
+
+.capture-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, white);
+  border-color: var(--brand);
+}
+
+.capture-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.capture-meta strong {
+  font-family: "IBM Plex Mono", monospace;
+  color: #1f4238;
+}
+
 button {
   border: none;
   border-radius: 12px;
@@ -239,6 +279,7 @@ button:hover {
   }
 
   .controls-card,
+  .auth-card,
   .events-card {
     grid-column: 2 / 3;
   }
@@ -258,5 +299,9 @@ button:hover {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
-}
 
+  .capture-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

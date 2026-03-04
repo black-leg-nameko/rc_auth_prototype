@@ -8,10 +8,146 @@ interface ScorePoint {
   phase: Phase;
 }
 
+interface CapturedEvent {
+  dwellMs: number;
+  flightMs: number;
+  keyCode: number;
+  isBackspace: boolean;
+}
+
+interface ThresholdPair {
+  high: number;
+  medium: number;
+}
+
+interface EnrollmentStatusResponse {
+  enrolled: boolean;
+  sampleCount: number;
+  windowSize: number;
+  stepSize: number;
+  thresholds: ThresholdPair | null;
+}
+
+interface EnrollmentResponse {
+  enrolled: boolean;
+  sampleCount: number;
+  windowSize: number;
+  stepSize: number;
+  thresholds: ThresholdPair;
+  quality: {
+    genuineAvgScore: number;
+    impostorAvgScore: number;
+    separationGap: number;
+  };
+}
+
+interface AuthResponse {
+  accepted: boolean;
+  riskLevel: RiskLevel;
+  decision: PolicyDecision;
+  thresholds: ThresholdPair;
+  summary: {
+    avgScore: number;
+    windows: number;
+    lowWindows: number;
+    lowRatio: number;
+    triggerIndex: number | null;
+  };
+  points: unknown[];
+}
+
 interface EvalState {
   riskLevel: RiskLevel;
   decision: PolicyDecision;
   lowStreak: number;
+}
+
+interface DownMeta {
+  downTs: number;
+  flightMs: number;
+  keyCode: number;
+  isBackspace: boolean;
+}
+
+class KeystrokeRecorder {
+  private readonly events: CapturedEvent[] = [];
+  private readonly activeDown = new Map<string, DownMeta>();
+  private lastUpTs: number | null = null;
+
+  constructor(
+    private readonly el: HTMLTextAreaElement,
+    private readonly onCountChange: (count: number) => void
+  ) {
+    this.bind();
+  }
+
+  snapshot(): CapturedEvent[] {
+    return this.events.map((event) => ({ ...event }));
+  }
+
+  reset(): void {
+    this.events.length = 0;
+    this.activeDown.clear();
+    this.lastUpTs = null;
+    this.onCountChange(0);
+  }
+
+  private bind(): void {
+    this.el.addEventListener("keydown", (event) => this.handleKeyDown(event));
+    this.el.addEventListener("keyup", (event) => this.handleKeyUp(event));
+    this.el.addEventListener("blur", () => {
+      this.activeDown.clear();
+    });
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (!this.isTrackable(event) || event.repeat) return;
+
+    const id = `${event.code}:${event.location}`;
+    if (this.activeDown.has(id)) return;
+
+    const now = performance.now();
+    const flightMs = this.lastUpTs === null ? 120.0 : Math.max(10.0, now - this.lastUpTs);
+    this.activeDown.set(id, {
+      downTs: now,
+      flightMs,
+      keyCode: this.toKeyCode(event),
+      isBackspace: event.key === "Backspace",
+    });
+  }
+
+  private handleKeyUp(event: KeyboardEvent): void {
+    if (!this.isTrackable(event)) return;
+
+    const id = `${event.code}:${event.location}`;
+    const meta = this.activeDown.get(id);
+    if (!meta) return;
+
+    const now = performance.now();
+    const dwellMs = Math.max(15.0, now - meta.downTs);
+    this.events.push({
+      dwellMs,
+      flightMs: meta.flightMs,
+      keyCode: meta.keyCode,
+      isBackspace: meta.isBackspace,
+    });
+
+    this.activeDown.delete(id);
+    this.lastUpTs = now;
+    this.onCountChange(this.events.length);
+  }
+
+  private isTrackable(event: KeyboardEvent): boolean {
+    if (event.key === "Backspace") return true;
+    if (event.key.length === 1) return true;
+    return false;
+  }
+
+  private toKeyCode(event: KeyboardEvent): number {
+    if (event.key === "Backspace") return 8;
+    if (event.key.length === 1) return event.key.toLowerCase().charCodeAt(0);
+    return event.keyCode || 0;
+  }
 }
 
 class ContinuousAuthDemo {
@@ -24,8 +160,22 @@ class ContinuousAuthDemo {
   private readonly riskEl: HTMLElement;
   private readonly decisionEl: HTMLElement;
   private readonly windowEl: HTMLElement;
+
+  private readonly enrollInput: HTMLTextAreaElement;
+  private readonly authInput: HTMLTextAreaElement;
+  private readonly enrollEventCountEl: HTMLElement;
+  private readonly enrollSampleCountEl: HTMLElement;
+  private readonly authEventCountEl: HTMLElement;
+  private readonly activeThresholdEl: HTMLElement;
+  private readonly modelStatusEl: HTMLElement;
+
   private readonly speedInput: HTMLInputElement;
   private readonly speedLabel: HTMLElement;
+
+  private readonly enrollRecorder: KeystrokeRecorder;
+  private readonly authRecorder: KeystrokeRecorder;
+
+  private enrollmentSamples: CapturedEvent[][] = [];
 
   private points: ScorePoint[] = [];
   private cursor = 0;
@@ -33,10 +183,13 @@ class ContinuousAuthDemo {
   private takeoverIndex: number | null = null;
   private previousDecision: PolicyDecision = "ALLOW";
   private previousRisk: RiskLevel = "LOW";
-  private speedMs = 350;
 
-  private readonly highThreshold = 0.45;
-  private readonly mediumThreshold = 0.7;
+  private highThreshold = 0.45;
+  private mediumThreshold = 0.7;
+  private requiredEventCount = 24;
+
+  private speedMs = 350;
+  private loading = false;
 
   constructor() {
     this.canvas = this.must<HTMLCanvasElement>("scoreChart");
@@ -47,6 +200,15 @@ class ContinuousAuthDemo {
     this.riskEl = this.must<HTMLElement>("metricRisk");
     this.decisionEl = this.must<HTMLElement>("metricDecision");
     this.windowEl = this.must<HTMLElement>("metricWindow");
+
+    this.enrollInput = this.must<HTMLTextAreaElement>("enrollInput");
+    this.authInput = this.must<HTMLTextAreaElement>("authInput");
+    this.enrollEventCountEl = this.must<HTMLElement>("enrollEventCount");
+    this.enrollSampleCountEl = this.must<HTMLElement>("enrollSampleCount");
+    this.authEventCountEl = this.must<HTMLElement>("authEventCount");
+    this.activeThresholdEl = this.must<HTMLElement>("activeThreshold");
+    this.modelStatusEl = this.must<HTMLElement>("modelStatus");
+
     this.speedInput = this.must<HTMLInputElement>("streamSpeed");
     this.speedLabel = this.must<HTMLElement>("speedLabel");
 
@@ -54,9 +216,21 @@ class ContinuousAuthDemo {
     if (!ctx) throw new Error("Canvas context not available");
     this.ctx = ctx;
 
+    this.enrollRecorder = new KeystrokeRecorder(this.enrollInput, (count) => {
+      this.enrollEventCountEl.textContent = String(count);
+    });
+    this.authRecorder = new KeystrokeRecorder(this.authInput, (count) => {
+      this.authEventCountEl.textContent = String(count);
+    });
+
     this.bindButtons();
     this.bindSpeedControl();
-    this.reset();
+    this.resetPlayback();
+    this.addEvent(
+      "Ready",
+      "1) Enrollment sampleを4件以上追加 2) Train RC Model 3) Authenticationを実行"
+    );
+    void this.refreshEnrollmentStatus();
   }
 
   private must<T extends HTMLElement>(id: string): T {
@@ -66,21 +240,38 @@ class ContinuousAuthDemo {
   }
 
   private bindButtons(): void {
-    this.must<HTMLButtonElement>("startNormal").addEventListener("click", () => {
-      this.start("normal");
+    this.must<HTMLButtonElement>("addEnrollSample").addEventListener("click", () => {
+      this.addEnrollmentSample();
     });
-    this.must<HTMLButtonElement>("startTakeover").addEventListener("click", () => {
-      this.start("takeover");
+
+    this.must<HTMLButtonElement>("clearEnrollInput").addEventListener("click", () => {
+      this.clearEnrollInput();
     });
+
+    this.must<HTMLButtonElement>("trainModel").addEventListener("click", () => {
+      void this.trainModel();
+    });
+
+    this.must<HTMLButtonElement>("resetModel").addEventListener("click", () => {
+      void this.resetModel();
+    });
+
+    this.must<HTMLButtonElement>("runAuthenticate").addEventListener("click", () => {
+      void this.runAuthentication();
+    });
+
+    this.must<HTMLButtonElement>("clearAuthInput").addEventListener("click", () => {
+      this.clearAuthInput();
+    });
+
     this.must<HTMLButtonElement>("pauseStream").addEventListener("click", () => {
-      if (this.timerId === null) {
-        this.resume();
-      } else {
-        this.pause();
-      }
+      if (this.timerId === null) this.resume();
+      else this.pause();
     });
+
     this.must<HTMLButtonElement>("resetStream").addEventListener("click", () => {
-      this.reset();
+      this.resetPlayback();
+      this.addEvent("Chart reset", "スコア表示を初期化しました");
     });
   }
 
@@ -96,19 +287,180 @@ class ContinuousAuthDemo {
     this.speedLabel.textContent = `${this.speedMs} ms`;
   }
 
-  private start(mode: "normal" | "takeover"): void {
-    this.points = this.generateSession(mode);
-    this.cursor = 0;
-    this.takeoverIndex = this.points.find((p) => p.phase === "takeover")?.index ?? null;
-    this.previousDecision = "ALLOW";
-    this.previousRisk = "LOW";
-    this.clearEvents();
-    this.addEvent("Session initialized", "通常セッションから継続認証を開始");
-    if (mode === "takeover") {
-      this.addEvent("Scenario armed", "途中で操作主体が攻撃者へ切替されます");
+  private async refreshEnrollmentStatus(): Promise<void> {
+    try {
+      const status = await this.getJson<EnrollmentStatusResponse>("/api/enroll/status");
+      this.applyEnrollmentStatus(status);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown error";
+      this.addEvent("API warning", `status fetch failed: ${detail}`, "event-alert");
     }
-    this.render();
-    this.resume();
+  }
+
+  private applyEnrollmentStatus(status: EnrollmentStatusResponse): void {
+    this.requiredEventCount = Math.max(8, Number(status.windowSize || 24));
+    this.enrollSampleCountEl.textContent = String(this.enrollmentSamples.length);
+
+    if (!status.enrolled || !status.thresholds) {
+      this.modelStatusEl.textContent = "Not enrolled";
+      this.activeThresholdEl.textContent = "--";
+      return;
+    }
+
+    this.highThreshold = Number(status.thresholds.high);
+    this.mediumThreshold = Number(status.thresholds.medium);
+    this.activeThresholdEl.textContent = this.highThreshold.toFixed(3);
+    this.modelStatusEl.textContent = `Enrolled (${status.sampleCount} samples)`;
+  }
+
+  private addEnrollmentSample(): void {
+    const sample = this.enrollRecorder.snapshot();
+    if (sample.length < this.requiredEventCount) {
+      this.addEvent(
+        "Sample rejected",
+        `keys=${sample.length} は不足です (最低 ${this.requiredEventCount})`,
+        "event-alert"
+      );
+      return;
+    }
+
+    this.enrollmentSamples.push(sample);
+    this.enrollSampleCountEl.textContent = String(this.enrollmentSamples.length);
+    this.addEvent(
+      "Enrollment sample added",
+      `sample=${this.enrollmentSamples.length}, keys=${sample.length}`
+    );
+
+    this.clearEnrollInput();
+  }
+
+  private clearEnrollInput(): void {
+    this.enrollInput.value = "";
+    this.enrollRecorder.reset();
+  }
+
+  private clearAuthInput(): void {
+    this.authInput.value = "";
+    this.authRecorder.reset();
+  }
+
+  private async trainModel(): Promise<void> {
+    if (this.loading) return;
+
+    if (this.enrollmentSamples.length < 4) {
+      this.addEvent("Enrollment blocked", "4サンプル以上を追加してから学習してください", "event-alert");
+      return;
+    }
+
+    this.loading = true;
+    this.pause();
+    this.statusEl.textContent = "Loading";
+
+    try {
+      const response = await this.postJson<EnrollmentResponse>("/api/enroll", {
+        samples: this.enrollmentSamples,
+      });
+
+      this.highThreshold = this.clamp(Number(response.thresholds.high), 0.0, 1.0);
+      this.mediumThreshold = this.clamp(Number(response.thresholds.medium), 0.0, 1.0);
+      this.activeThresholdEl.textContent = this.highThreshold.toFixed(3);
+      this.modelStatusEl.textContent = `Enrolled (${response.sampleCount} samples)`;
+      this.requiredEventCount = Math.max(8, Number(response.windowSize || this.requiredEventCount));
+
+      this.addEvent(
+        "Enrollment completed",
+        `threshold=${this.highThreshold.toFixed(3)}, gap=${response.quality.separationGap.toFixed(3)}`
+      );
+
+      this.enrollmentSamples = [];
+      this.enrollSampleCountEl.textContent = "0";
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown error";
+      this.addEvent("Enrollment error", detail, "event-danger");
+      this.statusEl.textContent = "API Error";
+    } finally {
+      this.loading = false;
+      if (this.statusEl.textContent === "Loading") this.statusEl.textContent = "Idle";
+    }
+  }
+
+  private async resetModel(): Promise<void> {
+    if (this.loading) return;
+    this.loading = true;
+    this.pause();
+    this.statusEl.textContent = "Loading";
+
+    try {
+      const status = await this.postJson<EnrollmentStatusResponse>("/api/enroll/reset", {});
+      this.enrollmentSamples = [];
+      this.enrollSampleCountEl.textContent = "0";
+      this.applyEnrollmentStatus(status);
+      this.addEvent("Model reset", "登録状態をクリアしました");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown error";
+      this.addEvent("Reset error", detail, "event-danger");
+      this.statusEl.textContent = "API Error";
+    } finally {
+      this.loading = false;
+      if (this.statusEl.textContent === "Loading") this.statusEl.textContent = "Idle";
+    }
+  }
+
+  private async runAuthentication(): Promise<void> {
+    if (this.loading) return;
+
+    const events = this.authRecorder.snapshot();
+    if (events.length < this.requiredEventCount) {
+      this.addEvent(
+        "Auth blocked",
+        `keys=${events.length} は不足です (最低 ${this.requiredEventCount})`,
+        "event-alert"
+      );
+      return;
+    }
+
+    this.loading = true;
+    this.pause();
+    this.statusEl.textContent = "Loading";
+
+    try {
+      const response = await this.postJson<AuthResponse>("/api/authenticate", {
+        events,
+      });
+
+      this.highThreshold = this.clamp(Number(response.thresholds.high), 0.0, 1.0);
+      this.mediumThreshold = this.clamp(Number(response.thresholds.medium), 0.0, 1.0);
+      this.activeThresholdEl.textContent = this.highThreshold.toFixed(3);
+
+      this.points = this.normalizePoints(response.points);
+      this.cursor = 0;
+      this.takeoverIndex = null;
+      this.previousDecision = "ALLOW";
+      this.previousRisk = "LOW";
+
+      this.render();
+      this.resume();
+
+      const detail =
+        `accepted=${response.accepted ? "yes" : "no"}, ` +
+        `decision=${response.decision}, ` +
+        `avg=${response.summary.avgScore.toFixed(3)}, ` +
+        `windows=${response.summary.windows}`;
+      this.addEvent(
+        "Authentication executed",
+        detail,
+        response.accepted ? undefined : "event-alert"
+      );
+
+      this.clearAuthInput();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown error";
+      this.addEvent("Auth error", detail, "event-danger");
+      this.statusEl.textContent = "API Error";
+    } finally {
+      this.loading = false;
+      if (this.statusEl.textContent === "Loading") this.statusEl.textContent = "Idle";
+    }
   }
 
   private resume(): void {
@@ -124,21 +476,19 @@ class ContinuousAuthDemo {
     this.statusEl.textContent = "Paused";
   }
 
-  private reset(): void {
+  private resetPlayback(): void {
     this.pause();
     this.points = [];
     this.cursor = 0;
     this.takeoverIndex = null;
     this.previousDecision = "ALLOW";
     this.previousRisk = "LOW";
-    this.clearEvents();
     this.statusEl.textContent = "Idle";
     this.scoreEl.textContent = "--";
     this.riskEl.textContent = "--";
     this.decisionEl.textContent = "--";
     this.windowEl.textContent = "--";
     this.drawChart();
-    this.addEvent("Ready", "シナリオを選択してストリームを開始してください");
   }
 
   private tick(): void {
@@ -183,7 +533,7 @@ class ContinuousAuthDemo {
     if (!current) return;
 
     if (this.takeoverIndex !== null && current.index === this.takeoverIndex) {
-      this.addEvent("Takeover detected candidate", "操作フェーズが変更されました", "event-alert");
+      this.addEvent("Takeover candidate", "操作フェーズが変更されました", "event-alert");
     }
 
     if (state.riskLevel !== this.previousRisk) {
@@ -197,7 +547,11 @@ class ContinuousAuthDemo {
 
     if (state.decision !== this.previousDecision) {
       const css =
-        state.decision === "LOCK" ? "event-danger" : state.decision === "STEP-UP" ? "event-alert" : undefined;
+        state.decision === "LOCK"
+          ? "event-danger"
+          : state.decision === "STEP-UP"
+            ? "event-alert"
+            : undefined;
       this.addEvent(
         "Policy action",
         `decision=${state.decision} (low streak=${state.lowStreak})`,
@@ -235,7 +589,6 @@ class ContinuousAuthDemo {
     const chartH = bottom - top;
 
     ctx.clearRect(0, 0, width, height);
-
     ctx.fillStyle = "#fcfffb";
     ctx.fillRect(0, 0, width, height);
 
@@ -255,7 +608,7 @@ class ContinuousAuthDemo {
     if (this.points.length === 0) {
       ctx.fillStyle = "#4f685d";
       ctx.font = "14px 'IBM Plex Mono', monospace";
-      ctx.fillText("No stream yet. Start a scenario.", left + 12, top + 28);
+      ctx.fillText("No stream yet. Enroll and run authentication.", left + 12, top + 28);
       return;
     }
 
@@ -277,26 +630,15 @@ class ContinuousAuthDemo {
     ctx.strokeStyle = "#0f766e";
     ctx.stroke();
 
-    ctx.lineWidth = 2;
-    for (let i = 1; i < visible.length; i += 1) {
-      const prev = visible[i - 1];
-      const cur = visible[i];
-      if (prev.phase === cur.phase) continue;
-      const x = toX(cur.index);
-      ctx.strokeStyle = "#cf6a1f";
-      ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-      ctx.stroke();
-      ctx.fillStyle = "#964e16";
-      ctx.font = "12px 'IBM Plex Mono', monospace";
-      ctx.fillText("Takeover", Math.min(x + 6, right - 70), top + 14);
-    }
-
     const latest = visible[visible.length - 1];
     ctx.beginPath();
     ctx.arc(toX(latest.index), toY(latest.score), 4.7, 0, Math.PI * 2);
-    ctx.fillStyle = latest.score < this.highThreshold ? "#b93d2f" : latest.score < this.mediumThreshold ? "#cf6a1f" : "#18865a";
+    ctx.fillStyle =
+      latest.score < this.highThreshold
+        ? "#b93d2f"
+        : latest.score < this.mediumThreshold
+          ? "#cf6a1f"
+          : "#18865a";
     ctx.fill();
 
     ctx.fillStyle = "#4f685d";
@@ -316,6 +658,7 @@ class ContinuousAuthDemo {
     const bottom = height - 30;
     const chartH = bottom - top;
     const y = bottom - threshold * chartH;
+
     ctx.strokeStyle = color;
     ctx.setLineDash([6, 5]);
     ctx.beginPath();
@@ -325,6 +668,77 @@ class ContinuousAuthDemo {
     ctx.setLineDash([]);
   }
 
+  private async getJson<T>(path: string): Promise<T> {
+    const response = await fetch(path, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    return this.parseJsonResponse<T>(response);
+  }
+
+  private async postJson<T>(path: string, payload: unknown): Promise<T> {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    return this.parseJsonResponse<T>(response);
+  }
+
+  private async parseJsonResponse<T>(response: Response): Promise<T> {
+    const raw = await response.text();
+    let body: unknown = {};
+
+    if (raw.length > 0) {
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        body = { error: raw };
+      }
+    }
+
+    if (!response.ok) {
+      const message =
+        body &&
+        typeof body === "object" &&
+        "error" in body &&
+        typeof (body as { error?: unknown }).error === "string"
+          ? (body as { error: string }).error
+          : `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+
+    return body as T;
+  }
+
+  private normalizePoints(pointsRaw: unknown): ScorePoint[] {
+    if (!Array.isArray(pointsRaw)) throw new Error("invalid response: points");
+
+    return pointsRaw.map((pointRaw, idx) => {
+      if (!pointRaw || typeof pointRaw !== "object") {
+        throw new Error(`invalid response: point[${idx}]`);
+      }
+      const point = pointRaw as {
+        index?: unknown;
+        score?: unknown;
+        phase?: unknown;
+      };
+      if (typeof point.score !== "number") {
+        throw new Error(`invalid response: point[${idx}].score`);
+      }
+
+      const phase: Phase = point.phase === "takeover" ? "takeover" : "genuine";
+      return {
+        index: typeof point.index === "number" ? Number(point.index) : idx,
+        score: this.clamp(point.score, 0.0, 1.0),
+        phase,
+      };
+    });
+  }
+
   private addEvent(title: string, detail: string, className?: string): void {
     const li = document.createElement("li");
     if (className) li.classList.add(className);
@@ -332,40 +746,11 @@ class ContinuousAuthDemo {
     const time = now.toLocaleTimeString("ja-JP", { hour12: false });
     li.textContent = `[${time}] ${title}: ${detail}`;
     this.eventLogEl.prepend(li);
-    const max = 18;
+
+    const max = 24;
     while (this.eventLogEl.children.length > max) {
       this.eventLogEl.removeChild(this.eventLogEl.lastChild as Node);
     }
-  }
-
-  private clearEvents(): void {
-    this.eventLogEl.innerHTML = "";
-  }
-
-  private generateSession(mode: "normal" | "takeover"): ScorePoint[] {
-    const points: ScorePoint[] = [];
-    const total = 60;
-    const takeoverStart = 30;
-
-    for (let i = 0; i < total; i += 1) {
-      const genuine = i < takeoverStart || mode === "normal";
-      let base = 0.75;
-      let wobble = (Math.sin(i / 4.2) + Math.cos(i / 6.7)) * 0.018;
-
-      if (!genuine && mode === "takeover") {
-        base = 0.42 + Math.sin(i / 3.1) * 0.03;
-        wobble += -0.03;
-      }
-
-      const noise = (Math.random() - 0.5) * 0.04;
-      const score = this.clamp(base + wobble + noise, 0.18, 0.96);
-      points.push({
-        index: i,
-        score,
-        phase: genuine ? "genuine" : "takeover",
-      });
-    }
-    return points;
   }
 
   private clamp(v: number, min: number, max: number): number {

@@ -11,8 +11,8 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">Mitou Target PoC</p>
-        <h1>RC Continuous Authentication Console</h1>
-        <p class="subtitle">キーストローク時系列から本人性を連続評価し、乗っ取り兆候を即時検知するデモ</p>
+        <h1>RC Enrollment + Continuous Authentication</h1>
+        <p class="subtitle">実ユーザーの打鍵を登録し、同一ユーザーの継続認証をリザバーで判定するPoC</p>
       </div>
       <span class="status-pill" id="engineStatus">Idle</span>
     </header>
@@ -43,18 +43,51 @@
       <section class="chart-card">
         <div class="card-head">
           <h2>Continuous Score Stream</h2>
-          <p>Green: genuine phase, Orange: takeover phase</p>
+          <p>本人らしさスコアをウィンドウ単位で再生表示</p>
         </div>
         <canvas id="scoreChart" width="980" height="360" aria-label="score chart"></canvas>
       </section>
 
       <section class="controls-card">
-        <h2>Scenario Control</h2>
+        <h2>1. Enrollment (User Registration)</h2>
+        <p class="section-note">同じような文章を4回以上入力して、各回をサンプル追加してください。</p>
+        <textarea
+          id="enrollInput"
+          class="capture-input"
+          rows="5"
+          placeholder="例: I am typing this sentence for RC enrollment demo."
+        ></textarea>
+        <div class="capture-meta">
+          <span>Captured Keys: <strong id="enrollEventCount">0</strong></span>
+          <span>Samples: <strong id="enrollSampleCount">0</strong></span>
+        </div>
         <div class="controls-grid">
-          <button id="startNormal">Normal Session</button>
-          <button id="startTakeover">Takeover Session</button>
-          <button id="pauseStream" class="secondary">Pause</button>
-          <button id="resetStream" class="secondary">Reset</button>
+          <button id="addEnrollSample">Add Sample</button>
+          <button id="clearEnrollInput" class="secondary">Clear Input</button>
+          <button id="trainModel">Train RC Model</button>
+          <button id="resetModel" class="secondary">Reset Model</button>
+        </div>
+        <p class="section-note">Model Status: <strong id="modelStatus">Not enrolled</strong></p>
+      </section>
+
+      <section class="auth-card">
+        <h2>2. Authentication Test</h2>
+        <p class="section-note">登録後、ここに通常入力して認証を実行してください。</p>
+        <textarea
+          id="authInput"
+          class="capture-input"
+          rows="5"
+          placeholder="認証テスト用に文章を入力"
+        ></textarea>
+        <div class="capture-meta">
+          <span>Captured Keys: <strong id="authEventCount">0</strong></span>
+          <span>Active Threshold: <strong id="activeThreshold">--</strong></span>
+        </div>
+        <div class="controls-grid">
+          <button id="runAuthenticate">Run Authentication</button>
+          <button id="clearAuthInput" class="secondary">Clear Input</button>
+          <button id="pauseStream" class="secondary">Pause Replay</button>
+          <button id="resetStream" class="secondary">Reset Chart</button>
         </div>
         <label class="speed-control" for="streamSpeed">
           Replay Speed
@@ -66,7 +99,7 @@
       <section class="events-card">
         <div class="card-head">
           <h2>Security Events</h2>
-          <p>State transitions and policy actions</p>
+          <p>登録・認証・判定遷移ログ</p>
         </div>
         <ul id="eventLog"></ul>
       </section>
@@ -75,4 +108,3 @@
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
-
