@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 import numpy as np
 
@@ -22,6 +22,24 @@ class KeystrokeEvent:
     flight_ms: float
     key_code: int
     is_backspace: bool
+
+
+def keystroke_event_to_dict(event: KeystrokeEvent) -> Dict[str, object]:
+    return {
+        "dwell_ms": float(event.dwell_ms),
+        "flight_ms": float(event.flight_ms),
+        "key_code": int(event.key_code),
+        "is_backspace": bool(event.is_backspace),
+    }
+
+
+def keystroke_event_from_dict(data: Dict[str, object]) -> KeystrokeEvent:
+    return KeystrokeEvent(
+        dwell_ms=float(data["dwell_ms"]),
+        flight_ms=float(data["flight_ms"]),
+        key_code=int(data["key_code"]),
+        is_backspace=bool(data["is_backspace"]),
+    )
 
 
 def generate_typing_events(
@@ -107,4 +125,3 @@ def build_feature_stream(
         windows.append(extract_window_features(window))
 
     return np.vstack(windows)
-

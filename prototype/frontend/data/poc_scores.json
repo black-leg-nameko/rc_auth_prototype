@@ -1,0 +1,332 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-03-04T04:46:54.922569+00:00",
+  "source": "prototype/scripts/run_poc.py",
+  "seed": 42,
+  "thresholds": {
+    "high": 0.5150000000000001,
+    "medium": 0.7150000000000001
+  },
+  "metrics": {
+    "frr": 0.0,
+    "far": 0.0
+  },
+  "scenarios": {
+    "normal": {
+      "points": [
+        {
+          "index": 0,
+          "score": 0.7263316211499561,
+          "phase": "genuine"
+        },
+        {
+          "index": 1,
+          "score": 0.7285879377441394,
+          "phase": "genuine"
+        },
+        {
+          "index": 2,
+          "score": 0.7279466000625668,
+          "phase": "genuine"
+        },
+        {
+          "index": 3,
+          "score": 0.7297722023451603,
+          "phase": "genuine"
+        },
+        {
+          "index": 4,
+          "score": 0.7310509133091067,
+          "phase": "genuine"
+        },
+        {
+          "index": 5,
+          "score": 0.7312047174835378,
+          "phase": "genuine"
+        },
+        {
+          "index": 6,
+          "score": 0.73275180917514,
+          "phase": "genuine"
+        },
+        {
+          "index": 7,
+          "score": 0.7348957731674355,
+          "phase": "genuine"
+        },
+        {
+          "index": 8,
+          "score": 0.7315757616080537,
+          "phase": "genuine"
+        },
+        {
+          "index": 9,
+          "score": 0.7286193516294706,
+          "phase": "genuine"
+        },
+        {
+          "index": 10,
+          "score": 0.7323745658417002,
+          "phase": "genuine"
+        },
+        {
+          "index": 11,
+          "score": 0.7313757915815149,
+          "phase": "genuine"
+        },
+        {
+          "index": 12,
+          "score": 0.7279919784512572,
+          "phase": "genuine"
+        },
+        {
+          "index": 13,
+          "score": 0.7275960214738525,
+          "phase": "genuine"
+        },
+        {
+          "index": 14,
+          "score": 0.7245335112282655,
+          "phase": "genuine"
+        },
+        {
+          "index": 15,
+          "score": 0.7259706081767988,
+          "phase": "genuine"
+        },
+        {
+          "index": 16,
+          "score": 0.7291462154245486,
+          "phase": "genuine"
+        },
+        {
+          "index": 17,
+          "score": 0.7276815870107431,
+          "phase": "genuine"
+        },
+        {
+          "index": 18,
+          "score": 0.7273102128619423,
+          "phase": "genuine"
+        },
+        {
+          "index": 19,
+          "score": 0.7259120904689019,
+          "phase": "genuine"
+        },
+        {
+          "index": 20,
+          "score": 0.7255993163230086,
+          "phase": "genuine"
+        },
+        {
+          "index": 21,
+          "score": 0.7267095880929136,
+          "phase": "genuine"
+        },
+        {
+          "index": 22,
+          "score": 0.7279912794128184,
+          "phase": "genuine"
+        },
+        {
+          "index": 23,
+          "score": 0.728374396433283,
+          "phase": "genuine"
+        },
+        {
+          "index": 24,
+          "score": 0.731542875442748,
+          "phase": "genuine"
+        },
+        {
+          "index": 25,
+          "score": 0.7350968864356475,
+          "phase": "genuine"
+        },
+        {
+          "index": 26,
+          "score": 0.7346950290869773,
+          "phase": "genuine"
+        },
+        {
+          "index": 27,
+          "score": 0.7347430044295221,
+          "phase": "genuine"
+        },
+        {
+          "index": 28,
+          "score": 0.7361076499775094,
+          "phase": "genuine"
+        },
+        {
+          "index": 29,
+          "score": 0.7353187440976788,
+          "phase": "genuine"
+        },
+        {
+          "index": 30,
+          "score": 0.7327178599021162,
+          "phase": "genuine"
+        }
+      ],
+      "takeoverStartIndex": null
+    },
+    "takeover": {
+      "points": [
+        {
+          "index": 0,
+          "score": 0.728535046219176,
+          "phase": "genuine"
+        },
+        {
+          "index": 1,
+          "score": 0.732528160605003,
+          "phase": "genuine"
+        },
+        {
+          "index": 2,
+          "score": 0.7316782241088141,
+          "phase": "genuine"
+        },
+        {
+          "index": 3,
+          "score": 0.73158370071126,
+          "phase": "genuine"
+        },
+        {
+          "index": 4,
+          "score": 0.7292845279205443,
+          "phase": "genuine"
+        },
+        {
+          "index": 5,
+          "score": 0.7295307836998013,
+          "phase": "genuine"
+        },
+        {
+          "index": 6,
+          "score": 0.7298367059943094,
+          "phase": "genuine"
+        },
+        {
+          "index": 7,
+          "score": 0.7298463808903621,
+          "phase": "genuine"
+        },
+        {
+          "index": 8,
+          "score": 0.730710247092254,
+          "phase": "genuine"
+        },
+        {
+          "index": 9,
+          "score": 0.7325139632933876,
+          "phase": "genuine"
+        },
+        {
+          "index": 10,
+          "score": 0.7297603488131179,
+          "phase": "genuine"
+        },
+        {
+          "index": 11,
+          "score": 0.7300880970892737,
+          "phase": "genuine"
+        },
+        {
+          "index": 12,
+          "score": 0.7309816102510927,
+          "phase": "genuine"
+        },
+        {
+          "index": 13,
+          "score": 0.7295497610882878,
+          "phase": "genuine"
+        },
+        {
+          "index": 14,
+          "score": 0.7280205113233609,
+          "phase": "genuine"
+        },
+        {
+          "index": 15,
+          "score": 0.427271297799345,
+          "phase": "takeover"
+        },
+        {
+          "index": 16,
+          "score": 0.3766462270904464,
+          "phase": "takeover"
+        },
+        {
+          "index": 17,
+          "score": 0.3867421251409043,
+          "phase": "takeover"
+        },
+        {
+          "index": 18,
+          "score": 0.4041696000055945,
+          "phase": "takeover"
+        },
+        {
+          "index": 19,
+          "score": 0.42533683271382383,
+          "phase": "takeover"
+        },
+        {
+          "index": 20,
+          "score": 0.4507477027299678,
+          "phase": "takeover"
+        },
+        {
+          "index": 21,
+          "score": 0.468020967971204,
+          "phase": "takeover"
+        },
+        {
+          "index": 22,
+          "score": 0.46771702229853235,
+          "phase": "takeover"
+        },
+        {
+          "index": 23,
+          "score": 0.4731433328376706,
+          "phase": "takeover"
+        },
+        {
+          "index": 24,
+          "score": 0.47445476405445064,
+          "phase": "takeover"
+        },
+        {
+          "index": 25,
+          "score": 0.4722879866194509,
+          "phase": "takeover"
+        },
+        {
+          "index": 26,
+          "score": 0.4698967113075562,
+          "phase": "takeover"
+        },
+        {
+          "index": 27,
+          "score": 0.4772309191650649,
+          "phase": "takeover"
+        },
+        {
+          "index": 28,
+          "score": 0.4845201973772883,
+          "phase": "takeover"
+        },
+        {
+          "index": 29,
+          "score": 0.4872440683167123,
+          "phase": "takeover"
+        }
+      ],
+      "takeoverStartIndex": 15,
+      "triggerIndex": 17
+    }
+  }
+}

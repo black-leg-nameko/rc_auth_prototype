@@ -38,21 +38,15 @@ python3 scripts/run_poc.py --seed 7 --events-per-seq 360 --num-train 30 --num-ca
 ## Notes
 
 - This is a concept verification prototype, not production code.
-- Input data is synthetic for fast iteration.
-- Next step is replacing synthetic data with real keystroke capture logs.
+- `run_poc.py` is an offline evaluation script (synthetic streams).
+- `run_demo_api.py` + frontend is the interactive enrollment/authentication demo path.
+- `collect_keystrokes.py` is for saving local real keystroke sessions to JSON.
 
 ## Frontend PoC (TypeScript)
 
 A TypeScript frontend demo is available at:
 
 - `prototype/frontend/index.html`
-
-Quick run:
-
-```bash
-cd /home/blackleg/ws/mitou_target/prototype/frontend
-python3 -m http.server 8080
-```
 
 ## Frontend + RC inference API demo
 
@@ -64,6 +58,16 @@ python3 scripts/run_demo_api.py --port 8080
 ```
 
 Then open `http://127.0.0.1:8080`.
+
+## Real keystroke capture (offline dataset)
+
+Collect labeled sessions:
+
+```bash
+cd /home/blackleg/ws/mitou_target/prototype
+python3 scripts/collect_keystrokes.py --label genuine --sessions 6 --min-events 260
+python3 scripts/collect_keystrokes.py --label impostor --sessions 6 --min-events 260
+```
 
 ## Real user enrollment -> authentication flow
 
